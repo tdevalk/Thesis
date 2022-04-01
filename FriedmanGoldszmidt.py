@@ -166,7 +166,8 @@ class FG_estimator(StructureEstimator):
     def update(
         self,
         new_data,
-        scoring_method="k2score",
+        structure_scoring_method="k2score",
+        parameter_scoring_method=None,
         start_dag=None,
         fixed_edges=set(),
         tabu_length=100,
@@ -279,15 +280,18 @@ class FG_estimator(StructureEstimator):
         #         do that to the current model. If no legal operation is
         #         possible, sets best_operation=None.
         for ind in iteration:
-            self.suff = scoring_method.update_suff(new_data[ind*data_per_search:(ind+1)*data_per_search])
-            score = scoring_method
+            update_data = new_data[ind*data_per_search:(ind+1)*data_per_search]
+            parameter_scoring_method.set_suff_stats(self.suff)
+            parameter_scoring_method.set_model(BayesianNetwork(current_model))
+            weights = parameter_scoring_method.compute_weights(update_data, latent_card={})
+            self.suff = structure_scoring_method.update_suff(weights, weighted=True, decay=0.01)
 
             best_operation, best_score_delta = max(
                 self.legal_operations(
                     new_data,
                     current_model,
-                    score,
-                    score.structure_prior_ratio,
+                    structure_scoring_method,
+                    structure_scoring_method.structure_prior_ratio,
                     tabu_list,
                     max_indegree,
                     black_list,
@@ -314,6 +318,10 @@ class FG_estimator(StructureEstimator):
                     current_model.remove_edge(X, Y)
                     current_model.add_edge(Y, X)
                     tabu_list.append(best_operation)
+
+            parameter_scoring_method.set_model(current_model)
+            new_cpds = MLE_FG(data=self.data, suff=self.suff,
+                model=current_model).get_parameters(n_jobs=-1, weighted=False)
 
 
         # Step 3: Return if no more improvements or maximum iterations reached.
@@ -381,13 +389,13 @@ class SuffStatBicScore(StructureScore):
                     self.suff[key] = counts
         print(f"The total number of stored sufficient statistic tables is {len(self.suff)}")
 
-    def update_suff(self, new_data):
+    def update_suff(self, new_data, weighted=False, decay=0):
         self.N += len(new_data)
         new_bic = BicScore(new_data, state_names=self.bic.state_names)
         for key in self.suff:
             old_suff = self.suff[key]
-            added_suff = new_bic.state_counts(key[0], key[1:])
-            self.suff[key] = old_suff + added_suff
+            added_suff = new_bic.state_counts(key[0], key[1:], weighted=weighted)
+            self.suff[key] = old_suff * (1-decay) + added_suff
         print(f"The stored sufficient statistics were updated!")
         return self.suff
 
@@ -628,3 +636,5 @@ class MLE_FG(ParameterEstimator):
         )
         cpd.normalize()
         return cpd
+
+
