@@ -15,6 +15,7 @@ def rename_values(data: pd.DataFrame):
     data["Stage"].replace([1, 2, 3, 4], ["Stage 1", "Stage 2", "Stage 3", "Stage 4"], inplace=True)
     data["Gender"].replace([0, 1], ["Female", "Male"], inplace=True)
     data["Comorbidity"].replace([1, 2], ["No", "Yes"], inplace=True)
+    data["Mutation"].replace(np.NaN, "Not treatable", inplace=True)
     data["Histology"].replace([0, 1, 2, 3, 4, 5], ["NSCLC Non-adeno non-squamous", "NSCLC adeno", "NSCLC adeno", "Squamous", "SCLC", np.NaN],
                              inplace=True)
     data["M0 Ecog"].replace([0, 1, 2], ["Unsymptomatic", "Symptomatic", ">50% care"], inplace=True)
@@ -25,7 +26,7 @@ def rename_values(data: pd.DataFrame):
     data["M-stage"].replace([1, 2, 3, 4, 5, 6], ["M0", "M1a", "M1b", "M1c", "M1", np.NaN], inplace=True)
     data["Treatment"].replace([1, 2, 3, 4, 5, 6], ["Immuno", "Immuno+", "Chemo(+radio)",
                                                       "Radio", "Targetted", "Chirurgical"], inplace=True)
-    data["Previous treatment"].replace([0, 1, 2, 3, 4, 5], ["No", "Chirurgical", "Chemoradio",
+    data["Previous treatment"].replace([0, 1, 2, 3, 4, 6], ["No", "Chirurgical", "Chemoradio",
                                                       "Radio", "Systemic (chemo)", "Other"], inplace=True)
     data["Treatment response"].replace([0, 1, 2, 3, 4, 5, 6, 7], ["Curative", "Complete", "Partial", "Stabile",
                                                                   "Progressive", "Recurrence", "Toxic", "Other"],
@@ -46,6 +47,13 @@ def disc_age(data: pd.DataFrame):
     # plt.show()
     #Since age is a peaked distribution, we use simple quantiled discretization
     data["Age"] = pd.qcut(data["Age"], 3, labels=["Young", "Average", "Old"])
+
+def disc_HRQOL(data: pd.DataFrame):
+    # data.hist(column="M0 HRQOL")
+    # data.hist(column="M3 HRQOL")
+    data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
+    data["M3 HRQOL"] = pd.qcut(data["M3 HRQOL"], 3, labels=["Low", "Average", "High"])
+    # data["M3 HRQOL"] = pd.cut(data["M3 HRQOL"], bins=bins, labels=["Low", "Average", "High"])
 
 def simplify_stadia(data: pd.DataFrame):
     data["stadium"].replace(["1A", "1B", "2A", "2B", "3A", "3B", "3C",
@@ -74,6 +82,7 @@ treatment_effect_var = ["Treatment response"]
 outcome_var = ["M0 Ecog", "M0 HRQOL", "M3 HRQOL", "M3 survival", "M6 survival"]
 data = pd.DataFrame(data, columns=char_var+tumor_var+treatment_var+treatment_effect_var+outcome_var)
 disc_age(data)
+disc_HRQOL(data)
 
 #
 # data = pd.read_csv("asia10K.csv")
@@ -83,6 +92,7 @@ disc_age(data)
 # new_data[:500]["Smoker"] = np.NaN
 
 test_data = data[:400]
+test_data = test_data.dropna()
 
 
 #Create initial model from data
