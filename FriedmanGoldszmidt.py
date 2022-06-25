@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import itertools
 from itertools import permutations, combinations
 from collections import deque
 
@@ -25,6 +26,7 @@ from pgmpy.estimators import (
 from pgmpy.base import DAG
 from pgmpy.global_vars import SHOW_PROGRESS
 
+from PK import PKalgorithm
 
 class FG_estimator(StructureEstimator):
     def __init__(self, data, use_cache=True, **kwargs):
@@ -163,10 +165,172 @@ class FG_estimator(StructureEstimator):
 
         # Could add removal of unused suff stats for memory efficiency
 
+    def check_outcoming_edges(
+        self,
+        new_data,
+        model,
+        score_method,
+        structure_score,
+        tabu_list,
+        max_indegree,
+        black_list,
+        white_list,
+        fixed_edges,
+        new_vars,
+    ):
+        """Generates a list of legal (= not in tabu_list) graph modifications
+        for a given model, together with their score changes. Possible graph modifications:
+        (1) add, (2) remove, or (3) flip a single edge. For details on scoring
+        see Koller & Friedman, Probabilistic Graphical Models, Section 18.4.3.3 (page 818).
+        If a number `max_indegree` is provided, only modifications that keep the number
+        of parents for each node below `max_indegree` are considered. A list of
+        edges can optionally be passed as `black_list` or `white_list` to exclude those
+        edges or to limit the search.
+        """
+        score = score_method.local_score
+        tabu_list = set(tabu_list)
+
+        # Step 1: Get all legal operations for adding edges.
+        # potential_new_edges = (
+        #         set(permutations(self.variables, 2))
+        #         - set(model.edges())
+        #         - set([(Y, X) for (X, Y) in model.edges()])
+        # )
+        outgoing_new_edges = (
+                set(itertools.product(new_vars, self.variables))
+                - set(model.edges())
+                - set([(Y, X) for (X, Y) in model.edges()])
+        )
+
+        incoming_new_edges = (
+                set(itertools.product(self.variables, new_vars))
+                - set(model.edges())
+                - set([(Y, X) for (X, Y) in model.edges()])
+        )
+
+        new_edges = outgoing_new_edges.union(incoming_new_edges)
+
+        for (X, Y) in new_edges:
+            # Check if adding (X, Y) will create a cycle.
+            if not nx.has_path(model, Y, X):
+                operation = ("+", (X, Y))
+                if (
+                        (operation not in tabu_list)
+                        and ((X, Y) not in black_list)
+                        and ((X, Y) in white_list)
+                ):
+                    old_parents = model.get_parents(Y)
+                    old_parents.sort()
+                    new_parents = old_parents + [X]
+                    new_parents.sort()
+                    # print(f' trying to evaluate: {(Y, new_parents)}')
+                    if not score_method.can_evaluate(Y, new_parents):
+                        print(f"Cannot evaluate {(Y, new_parents)}")
+                        self.suff = score_method.add_to_suff(new_data, Y, new_parents)
+                    if len(new_parents) <= max_indegree:
+                        score_delta = score(Y, new_parents) - score(Y, old_parents)
+                        score_delta += structure_score("+")
+                        if score_delta > 0:
+                            yield (operation, score_delta)
+
+
+    def variable_addition_update(
+        self,
+        new_data,
+        new_vars,
+        structure_scoring_method=None,
+        parameter_scoring_method=None,
+        start_dag=None,
+        fixed_edges=set(),
+        tabu_length=100,
+        max_indegree=None,
+        black_list=None,
+        white_list=None,
+        show_progress=True,
+        ):
+        PK = PKalgorithm(new_data, new_vars)
+        new_suff = {}
+        for variable_set in self.suff:
+            suff = PK.merge(self.suff[variable_set], {x: self.state_names[x] for x in variable_set})
+            key = list(variable_set) + new_vars
+            key.sort()
+            key = tuple(key)
+            new_suff[key] = suff
+        self.suff.update(new_suff)
+        for var in new_vars:
+            self.state_names[var] = PK.new_state_names[var]
+            structure_scoring_method.state_names[var] = PK.new_state_names[var]
+
+        # Add nodes to network, without edges
+        model = start_dag
+        for var in new_vars:
+            model.add_node(var)
+            self.variables = self.variables+new_vars
+
+
+        # Step 1.3: Check fixed_edges
+        if not hasattr(fixed_edges, "__iter__"):
+            raise ValueError("fixed_edges must be an iterable")
+        else:
+            fixed_edges = set(fixed_edges)
+            start_dag.add_edges_from(fixed_edges)
+            if not nx.is_directed_acyclic_graph(start_dag):
+                raise ValueError(
+                    "fixed_edges creates a cycle in start_dag. Please modify either fixed_edges or start_dag."
+                )
+
+        # Step 1.4: Check black list and white list
+        black_list = set() if black_list is None else set(black_list)
+        white_list = (
+            set([(u, v) for u in self.variables for v in self.variables])
+            if white_list is None
+            else set(white_list)
+        )
+
+        # Step 1.5: Initialize max_indegree, tabu_list, and progress bar
+        if max_indegree is None:
+            max_indegree = float("inf")
+        tabu_list = deque(maxlen=tabu_length)
+
+        best_operation = True
+        while best_operation != None:
+            #get all legal parent set additions
+            best_operation, best_score_delta = max(
+                self.check_outcoming_edges(
+                    new_data,
+                    start_dag,
+                    structure_scoring_method,
+                    structure_scoring_method.structure_prior_ratio,
+                    tabu_list,
+                    max_indegree,
+                    black_list,
+                    white_list,
+                    fixed_edges,
+                    new_vars,
+                ),
+                key=lambda t: t[1],
+                default=(None, None),
+            )
+
+            if best_operation != None:
+                # perform all operations that result in score increase:
+                print(f"Changed model by {best_operation} , leading to score increase "
+                      f"of {best_score_delta}")
+                model.add_edge(*best_operation[1])
+                tabu_list.append(("-", best_operation[1]))
+
+            parameter_scoring_method.set_suff_stats(self.suff)
+            new_cpds = MLE_FG(data=new_data, suff=self.suff,
+                              model=model).get_parameters(n_jobs=-1, weighted=False)
+            model.cpds = new_cpds
+            parameter_scoring_method.set_model(BayesianNetwork(model))
+
+        return model
+
     def update(
         self,
         new_data,
-        structure_scoring_method="k2score",
+        structure_scoring_method=None,
         parameter_scoring_method=None,
         start_dag=None,
         fixed_edges=set(),
@@ -177,6 +341,7 @@ class FG_estimator(StructureEstimator):
         data_per_search=100,
         show_progress=True,
     ):
+
         """
         Performs local hill climb search to estimates the `DAG` structure that
         has optimal score, according to the scoring method supplied. Starts at
@@ -319,10 +484,9 @@ class FG_estimator(StructureEstimator):
                     current_model.add_edge(Y, X)
                     tabu_list.append(best_operation)
 
-            parameter_scoring_method.set_model(current_model)
             new_cpds = MLE_FG(data=self.data, suff=self.suff,
                 model=current_model).get_parameters(n_jobs=-1, weighted=False)
-
+            current_model.cpds = new_cpds
 
         # Step 3: Return if no more improvements or maximum iterations reached.
         return current_model
@@ -417,22 +581,29 @@ class SuffStatBicScore(StructureScore):
         return self.suff
 
     def simplify_suff(self, variable, parents):
+        # print("Simplify suff called")
         for alternative_keys in self.suff.keys():
+            # print(f"Alternative suff under consideration: {alternative_keys}")
             key = parents + [variable]
             key.sort()
             key = tuple(key)
+            # print(f'key under eval: {key}')
             if set(key).issubset(alternative_keys):
+                # print("Subset detected, starting reduction")
                 if variable != alternative_keys[0]:
+                    # print("Retarget necessary")
                     retargetted_suff = self.suff[alternative_keys].stack(level=variable).unstack(
                         level=alternative_keys[0])
+                    # print(f"retargetted: {retargetted_suff}")
                 else:
                     retargetted_suff = self.suff[alternative_keys]
                 if parents != []:
                     reduced_suff = retargetted_suff.groupby(axis=1, level=parents).sum()
                 else:
                     reduced_suff = pd.DataFrame(retargetted_suff.sum(axis=1))
+                # print(f'reduction leads to: {reduced_suff}')
                 return reduced_suff
-        print("Failing to simplify a sufficient statistic!")
+        # print("Failing to simplify a sufficient statistic!")
         return False
 
     def local_score(self, variable, parents):
