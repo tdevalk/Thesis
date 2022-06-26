@@ -2,6 +2,8 @@
 import itertools
 from itertools import permutations, combinations
 from collections import deque
+from scipy.special import gammaln
+from math import lgamma, log
 
 import networkx as nx
 import numpy as np
@@ -11,7 +13,7 @@ from tqdm.auto import trange
 from pgmpy.estimators import BicScore
 from itertools import chain
 from joblib import Parallel, delayed
-from pgmpy.estimators import ParameterEstimator
+from pgmpy.estimators import ParameterEstimator, BaseEstimator
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.models import BayesianNetwork
 
@@ -492,7 +494,7 @@ class FG_estimator(StructureEstimator):
         return current_model
 
 
-class SuffStatBicScore(StructureScore):
+class SuffStatScore(StructureScore):
     def __init__(self, data, **kwargs):
         """
         Class for Bayesian structure scoring for BayesianNetworks with
@@ -529,8 +531,8 @@ class SuffStatBicScore(StructureScore):
         """
         self.suff = {}
         self.N = len(data)
-        self.bic = BicScore(data)
-        super(SuffStatBicScore, self).__init__(data, **kwargs)
+        self.base_estimator = BaseEstimator(data)
+        super(SuffStatScore, self).__init__(data, **kwargs)
 
     def calculate_sufficient_stats(self, model):
         for node in model.nodes():
@@ -549,13 +551,13 @@ class SuffStatBicScore(StructureScore):
                            self.suff.pop(alternative_key)
                 if not any(set(key).issubset(alternative_key) for alternative_key in
                         self.suff.keys()):
-                    counts = self.bic.state_counts(key[0], key[1:])
+                    counts = self.base_estimator.state_counts(key[0], key[1:])
                     self.suff[key] = counts
         print(f"The total number of stored sufficient statistic tables is {len(self.suff)}")
 
     def update_suff(self, new_data, weighted=False, decay=0):
         self.N += len(new_data)
-        new_bic = BicScore(new_data, state_names=self.bic.state_names)
+        new_bic = BicScore(new_data, state_names=self.base_estimator.state_names)
         for key in self.suff:
             old_suff = self.suff[key]
             added_suff = new_bic.state_counts(key[0], key[1:], weighted=weighted)
@@ -572,7 +574,7 @@ class SuffStatBicScore(StructureScore):
 
     def add_to_suff(self, new_data, variable, parents):
         print(f"A new suff stat was added for var: {variable} and parents: {parents}")
-        new_bic = BicScore(new_data, state_names=self.bic.state_names)
+        new_bic = BicScore(new_data, state_names=self.base_estimator.state_names)
         key = parents + [variable]
         key.sort()
         key = tuple(key)
@@ -605,6 +607,10 @@ class SuffStatBicScore(StructureScore):
                 return reduced_suff
         # print("Failing to simplify a sufficient statistic!")
         return False
+
+class SuffStatBicScore(SuffStatScore):
+    def __init__(self, data, **kwargs):
+        super(SuffStatBicScore, self).__init__(data, **kwargs)
 
     def local_score(self, variable, parents):
         'Computes a score that measures how much a \
@@ -649,6 +655,43 @@ class SuffStatBicScore(StructureScore):
         # print(f"Score is then changed to {score}")
         # print(normalization)
         return score/normalization
+
+class SuffStatBDeuScore(SuffStatScore):
+    def __init__(self, data, equivalent_sample_size=10, **kwargs):
+        self.equivalent_sample_size = equivalent_sample_size
+        super(SuffStatBDeuScore, self).__init__(data, **kwargs)
+
+    def local_score(self, variable, parents):
+        par = list(parents)
+        par.sort()
+        key = tuple([variable]) + tuple(par)
+        var_states = self.state_names[variable]
+        var_cardinality = len(var_states)
+        state_counts = self.simplify_suff(variable, par)
+        num_parents_states = float(state_counts.shape[1])
+        counts = np.asarray(state_counts)
+
+        log_gamma_counts = np.zeros_like(counts, dtype=float)
+        alpha = self.equivalent_sample_size / num_parents_states
+        beta = self.equivalent_sample_size / counts.size
+        # Compute log(gamma(counts + beta))
+        gammaln(counts + beta, out=log_gamma_counts)
+
+        # Compute the log-gamma conditional sample size
+        log_gamma_conds = np.sum(counts, axis=0, dtype=float)
+        gammaln(log_gamma_conds + alpha, out=log_gamma_conds)
+
+        score = (
+            np.sum(log_gamma_counts)
+            - np.sum(log_gamma_conds)
+            + num_parents_states * lgamma(alpha)
+            - counts.size * lgamma(beta)
+        )
+        #Normalization per datapoint
+        normalization = np.sum(counts)
+
+        return score/normalization
+
 
 class MLE_FG(ParameterEstimator):
     def __init__(self, suff, model, data, **kwargs):
