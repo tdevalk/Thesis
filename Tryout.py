@@ -23,9 +23,12 @@ def rename_values(data: pd.DataFrame):
                             [np.NaN, "Tin situ", "T1", "T1", "T1", "T1", "T2", "T2", "T3",
                              "T4", np.NaN, "T2", "T1", "T0"], inplace=True)
     data["N-stage"].replace([1, 2, 3, 4, 5, 6], ["N0", "N1", "N2", "N3", np.NaN, np.NaN], inplace=True)
-    data["M-stage"].replace([1, 2, 3, 4, 5, 6], ["M0", "M1a", "M1b", "M1c", "M1", np.NaN], inplace=True)
+    # data["M-stage"].replace([1, 2, 3, 4, 5, 6], ["M0", "M1a", "M1b", "M1c", "M1", np.NaN], inplace=True)
+    data["M-stage"].replace([1, 2, 3, 4, 5, 6], ["M0", "M1", "M1", "M1", "M1", np.NaN], inplace=True)
     data["Treatment"].replace([1, 2, 3, 4, 5, 6], ["Immuno", "Immuno+", "Chemo(+radio)",
                                                       "Radio", "Targetted", "Chirurgical"], inplace=True)
+    # data["Treatment"].replace([1, 2, 3, 4, 5, 6], ["Dummy 1", "Dummy 1", "Dummy 1",
+    #                                                   "Dummy 2", "Dummy 2", "Dummy 2"], inplace=True)
     data["Prev. treatment"].replace([0, 1, 2, 3, 4, 6], ["No", "Chirurgical", "Chemoradio",
                                                       "Radio", "Systemic (chemo)", "Other"], inplace=True)
     data["Treat. response"].replace([0, 1, 2, 3, 4, 5, 6, 7], ["Complete", "Complete", "Partial", "Stabile",
@@ -53,7 +56,7 @@ def disc_HRQOL(data: pd.DataFrame, delta=True):
         data["delta HRQOL"] = data["M3 HRQOL"] - data["M0 HRQOL"]
         data["M3 HRQOL"] = np.where(data["delta HRQOL"] > 10, "Declined",
                  np.where((data["survival days"] < datetime.timedelta(days = 15*7)), "Death", np.where(pd.isnull(data["M3 HRQOL"]), np.NaN, "Stable")))
-        data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
+        data["M0 HRQOL"] = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=False).astype("object")
     else:
         data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
         data["M0 HRQOL"] = data["M0 HRQOL"].astype("object")
@@ -81,6 +84,7 @@ data = pd.read_csv("220303_request_IRIS.csv", sep=";", header=0,
 rename_values(data)
 data=data[data["Histology"] != "SCLC"]
 data=data[(data["Stage"] == "Stage 3") | (data["Stage"] == "Stage 4")]
+data=data[(data["Treat. response"] != "Other") | (data["Treat. response"] != "Recurrence")]
 calc_survival(data)
 char_var = ["Age", "Gender", "Comorbidity"]
 # tumor_var = ["T-stage", "N-stage", "M-stage", "Histology", "Treat. mutation"]
@@ -98,8 +102,7 @@ data = pd.DataFrame(data, columns=char_var+tumor_var+treatment_var+treatment_eff
 
 test_data = data[:400]
 test_data = pd.DataFrame(test_data, columns=test_data.columns[:-2])
-new_data = data[400:]
-new_data = pd.DataFrame(new_data, columns=new_data.columns[:-2])
+new_data = test_data
 extra_var_data = pd.DataFrame(data)
 
 blacklist = pd.read_csv("BlacklistCSV.csv", sep=";")
@@ -119,7 +122,7 @@ bn.fit(test_data, estimator=MaximumLikelihoodEstimator)
 #Create BDeu scorer that works with suff stats instead of data to evaluate structures
 bdeu_FG = SuffStatBDeuScore(test_data)
 bdeu_FG.calculate_sufficient_stats(bn, blacklist)
-bdeu_FG.score(bn)
+# bdeu_FG.score(bn)
 
 #Create Expectation Maximization scorer that works with suff stats instead of data to evaluate
 # parameters
@@ -130,10 +133,10 @@ EMI_FG.set_suff_stats(bdeu_FG.suff)
 FG = FG_estimator(test_data)
 updated_model = FG.update(new_data=new_data, structure_scoring_method=bdeu_FG,
                           parameter_scoring_method=EMI_FG, start_dag=bn, tabu_length=0,
-                          data_per_search=35, black_list=blacklist)
+                          data_per_search=100, black_list=blacklist, fixed_edges=test_data_whitelist)
 # print(updated_model.cpds[0])
 updated_model = FG.variable_addition_update(extra_var_data, ["M3 survival", "M6 survival"], start_dag=updated_model, structure_scoring_method=bdeu_FG,
-                            parameter_scoring_method=EMI_FG, black_list=blacklist)
+                            parameter_scoring_method=EMI_FG, black_list=blacklist, fixed_edges=whitelist)
 
 
 

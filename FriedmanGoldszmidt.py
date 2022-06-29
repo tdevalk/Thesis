@@ -410,13 +410,13 @@ class FG_estimator(StructureEstimator):
         # Step 1.3: Check fixed_edges
         if not hasattr(fixed_edges, "__iter__"):
             raise ValueError("fixed_edges must be an iterable")
-        else:
-            fixed_edges = set(fixed_edges)
-            start_dag.add_edges_from(fixed_edges)
-            if not nx.is_directed_acyclic_graph(start_dag):
-                raise ValueError(
-                    "fixed_edges creates a cycle in start_dag. Please modify either fixed_edges or start_dag."
-                )
+        # else:
+        #     fixed_edges = set(fixed_edges)
+        #     start_dag.add_edges_from(fixed_edges)
+        #     if not nx.is_directed_acyclic_graph(start_dag):
+        #         raise ValueError(
+        #             "fixed_edges creates a cycle in start_dag. Please modify either fixed_edges or start_dag."
+        #         )
 
         # Step 1.4: Check black list and white list
         black_list = set() if black_list is None else set(black_list)
@@ -539,7 +539,7 @@ class SuffStatScore(StructureScore):
             parents = model.get_parents(node)
             vars = parents + [node]
             blocked_parents = [item[0] for item in blacklist if item[1] == node]
-            print(f"for node {node} blocked are {blocked_parents}")
+            # print(f"for node {node} blocked are {blocked_parents}")
             candidate_parents = [item for item in list(model.nodes()) if ((item not in vars) and (item not in blocked_parents))]
             #Extra parents
             for candidate in candidate_parents:
@@ -548,10 +548,14 @@ class SuffStatScore(StructureScore):
                 key = potential_parents + [node]
                 key.sort()
                 key = tuple(key)
-                for alternative_key in self.suff.copy().keys():
-                    if set(alternative_key).issubset(key) and not alternative_key == key:
-                           self.suff.pop(alternative_key)
-                if not any(set(key).issubset(alternative_key) for alternative_key in
+                # for alternative_key in self.suff.copy().keys():
+                #     if set(alternative_key).issubset(key) and not alternative_key == key:
+                #            self.suff.pop(alternative_key)
+                # if not any(set(key).issubset(alternative_key) for alternative_key in
+                #         self.suff.keys()):
+                #     counts = self.base_estimator.state_counts(key[0], key[1:])
+                #     self.suff[key] = counts
+                if not any(set(key) == alternative_key for alternative_key in
                         self.suff.keys()):
                     counts = self.base_estimator.state_counts(key[0], key[1:])
                     self.suff[key] = counts
@@ -585,27 +589,42 @@ class SuffStatScore(StructureScore):
         return self.suff
 
     def simplify_suff(self, variable, parents):
-        print(f"Simplify suff called for var: {variable} and parents: {parents}")
-        for alternative_keys in self.suff.keys():
-            print(f"Alternative suff under consideration: {alternative_keys}")
+        # print(f"Simplify suff called for var: {variable} and parents: {parents}")
+        for alternative_keys in sorted(self.suff.keys(), key=len):
+            # print(f"Alternative suff under consideration: {alternative_keys}")
             key = parents + [variable]
             key.sort()
             key = tuple(key)
             # print(f'key under eval: {key}')
+            #SOMEHOW PICK THE SMALLEST SUFF INSTEAD OF ANY SUFF
             if set(key).issubset(alternative_keys):
-                print("Subset detected, starting reduction")
-                if variable != alternative_keys[0]:
-                    # print("Retarget necessary")
-                    retargetted_suff = self.suff[alternative_keys].stack(level=variable).unstack(
-                        level=alternative_keys[0])
-                    # print(f"retargetted: {retargetted_suff}")
+                # print("Subset detected, starting reduction")
+                if (key.__contains__(alternative_keys[0])) and len(list(key)) > 1:
+                    levels = list(key)
+                    levels.remove(alternative_keys[0])
+                    smaller_suff = self.suff[alternative_keys].groupby(axis=1, level=levels).sum()
+                elif not variable == alternative_keys[0]:
+                    smaller_suff = self.suff[alternative_keys].groupby(axis=1, level=list(key)).sum()
                 else:
-                    retargetted_suff = self.suff[alternative_keys]
+                    smaller_suff = pd.DataFrame(self.suff[alternative_keys].sum(1))
+                if variable != alternative_keys[0]:
+                    retargetted_suff = smaller_suff.stack(level=variable).unstack(
+                        level=alternative_keys[0])
+                else:
+                    retargetted_suff = smaller_suff
+                #
+                # if variable != alternative_keys[0]:
+                #     # print("Retarget necessary")
+                #     retargetted_suff = self.suff[alternative_keys].stack(level=variable).unstack(
+                #         level=alternative_keys[0])
+                #     # print(f"retargetted: {retargetted_suff}")
+                # else:
+                #     retargetted_suff = self.suff[alternative_keys]
                 if parents != []:
                     reduced_suff = retargetted_suff.groupby(axis=1, level=parents).sum()
                 else:
                     reduced_suff = pd.DataFrame(retargetted_suff.sum(axis=1))
-                print(f'reduction succesfull')
+                # print(f'reduction succesfull')
                 return reduced_suff
         print(f"Failing to simplify a sufficient statistic for {variable} with parents{parents}!")
         return False
@@ -625,9 +644,9 @@ class SuffStatBicScore(SuffStatScore):
         # print(f"parents for which state_counts are searched: {par}")
         par.sort()
         key = tuple([variable]) + tuple(par)
-        print(f"parents for which state_counts are searched: {par}")
+        # print(f"parents for which state_counts are searched: {par}")
         state_counts = self.simplify_suff(variable, par)
-        print(f"The suff stat is found")
+        # print(f"The suff stat is found")
         if not type(state_counts) == pd.DataFrame:
             print(f"this suff stat {key} is not in the list!")
         sample_size = self.N
@@ -669,9 +688,9 @@ class SuffStatBDeuScore(SuffStatScore):
         key = tuple([variable]) + tuple(par)
         var_states = self.state_names[variable]
         var_cardinality = len(var_states)
-        print(f"parents for which state_counts are searched: {par}")
+        # print(f"parents for which state_counts are searched: {par}")
         state_counts = self.simplify_suff(variable, par)
-        print(f"The suff stat is found")
+        # print(f"The suff stat is found")
         num_parents_states = float(state_counts.shape[1])
         counts = np.asarray(state_counts)
 
