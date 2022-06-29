@@ -1,0 +1,24 @@
+﻿From;To
+T-stage;M0 Ecog
+M-stage;M0 Ecog
+N-stage;M0 Ecog
+Age;M0 Ecog
+Gender;M0 Ecog
+T-stage;M0 HRQOL
+M-stage;M0 HRQOL
+N-stage;M0 HRQOL
+T-stage;M3 HRQOL
+M-stage;M3 HRQOL
+N-stage;M3 HRQOL
+M0 HRQOL;M3 survival
+M3 HRQOL;M6 survival
+Age;M3 survival
+Age;M6 survival
+Treat. response;M3 HRQOL
+Treat. response;M3 survival
+Treat. response;M6 survival
+Treatment;M3 HRQOL
+Treatment;M3 survival
+Treatment;M6 survival
+Treatment;Treat. response
+M3 survival;M6 survival

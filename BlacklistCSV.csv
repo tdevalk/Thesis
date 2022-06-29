@@ -208,15 +208,15 @@ M6 survival;M3 survival
 Treatment;Prev. treatment
 Treatment;M0 Ecog
 Treatment;M0 HRQOL
-;
-;
-;
-;
-;
-;
-;
-;
-;
+Comorbidity;Histology
+Comorbidity;Treat. mutation
+Comorbidity;T-stage
+Comorbidity;M-stage
+Comorbidity;N-stage
+Comorbidity;Location
+Treat. response;M0 Ecog
+M3 HRQOL;M0 Ecog
+M0 HRQOL;M0 Ecog
 ;
 ;
 ;
