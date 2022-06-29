@@ -28,8 +28,8 @@ def rename_values(data: pd.DataFrame):
                                                       "Radio", "Targetted", "Chirurgical"], inplace=True)
     data["Prev. treatment"].replace([0, 1, 2, 3, 4, 6], ["No", "Chirurgical", "Chemoradio",
                                                       "Radio", "Systemic (chemo)", "Other"], inplace=True)
-    data["Treat. response"].replace([0, 1, 2, 3, 4, 5, 6, 7], ["Curative", "Complete", "Partial", "Stabile",
-                                                                  "Progressive", "Recurrence", "Toxic", "Other"],
+    data["Treat. response"].replace([0, 1, 2, 3, 4, 5, 6, 7], ["Complete", "Complete", "Partial", "Stabile",
+                                                                  "Progressive", "Recurrence", "Death", "Other"],
                                        inplace=True)
 
 def calc_survival(data: pd.DataFrame):
@@ -48,13 +48,17 @@ def disc_age(data: pd.DataFrame):
     #Since age is a peaked distribution, we use simple quantiled discretization
     data["Age"] = pd.qcut(data["Age"], 3, labels=["Young", "Average", "Old"]).astype("object")
 
-def disc_HRQOL(data: pd.DataFrame):
-    # data.hist(column="M0 HRQOL")
-    # data.hist(column="M3 HRQOL")
-    data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
-    data["M0 HRQOL"] = data["M0 HRQOL"].astype("object")
-    data["M3 HRQOL"] = pd.qcut(data["M3 HRQOL"], 3, labels=["Low", "Average", "High"]).astype("object")
-    # data["M3 HRQOL"] = pd.cut(data["M3 HRQOL"], bins=bins, labels=["Low", "Average", "High"]).astype("object")
+def disc_HRQOL(data: pd.DataFrame, delta=True):
+    if delta:
+        data["delta HRQOL"] = data["M3 HRQOL"] - data["M0 HRQOL"]
+        data["M3 HRQOL"] = np.where(data["delta HRQOL"] > 10, "Declined",
+                 np.where((data["survival days"] < datetime.timedelta(days = 15*7)), "Death", np.where(pd.isnull(data["M3 HRQOL"]), np.NaN, "Stable")))
+        data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
+    else:
+        data["M0 HRQOL"], bins = pd.qcut(data["M0 HRQOL"], 3, labels=["Low", "Average", "High"], retbins=True)
+        data["M0 HRQOL"] = data["M0 HRQOL"].astype("object")
+        data["M3 HRQOL"] = pd.qcut(data["M3 HRQOL"], 3, labels=["Low", "Average", "High"]).astype("object")
+        # data["M3 HRQOL"] = pd.cut(data["M3 HRQOL"], bins=bins, labels=["Low", "Average", "High"]).astype("object")
 
 def simplify_stadia(data: pd.DataFrame):
     data["stadium"].replace(["1A", "1B", "2A", "2B", "3A", "3B", "3C",
@@ -75,16 +79,21 @@ data = pd.read_csv("220303_request_IRIS.csv", sep=";", header=0,
                    names=names, dtype=dtypes, parse_dates=parse_dates,
                    infer_datetime_format=True, dayfirst=True)
 rename_values(data)
+data=data[data["Histology"] != "SCLC"]
+data=data[(data["Stage"] == "Stage 3") | (data["Stage"] == "Stage 4")]
 calc_survival(data)
 char_var = ["Age", "Gender", "Comorbidity"]
-tumor_var = ["T-stage", "N-stage", "M-stage", "Histology", "Treat. mutation"]
-treatment_var = ["Treatment", "Prev. treatment"]
+# tumor_var = ["T-stage", "N-stage", "M-stage", "Histology", "Treat. mutation"]
+tumor_var = ["T-stage", "N-stage", "M-stage", "Histology"]
+# treatment_var = ["Treatment", "Prev. treatment"]
+treatment_var = ["Treatment"]
 treatment_effect_var = ["Treat. response"]
 outcome_var = ["M0 Ecog", "M0 HRQOL", "M3 HRQOL", "M3 survival", "M6 survival"]
-data = pd.DataFrame(data, columns=char_var+tumor_var+treatment_var+treatment_effect_var+outcome_var)
-# data = pd.DataFrame(data, columns=char_var)
 disc_age(data)
 disc_HRQOL(data)
+data = pd.DataFrame(data, columns=char_var+tumor_var+treatment_var+treatment_effect_var+outcome_var)
+# data = pd.DataFrame(data, columns=char_var)
+
 
 
 test_data = data[:400]
@@ -95,18 +104,21 @@ extra_var_data = pd.DataFrame(data)
 
 blacklist = pd.read_csv("BlacklistCSV.csv", sep=";")
 blacklist = list(zip(blacklist["From"], blacklist["To"]))
+whitelist = pd.read_csv("WhitelistCSV.csv", sep=";")
+whitelist = list(zip(whitelist["From"], whitelist["To"]))
+test_data_whitelist = [x for x in whitelist if not (x[0] in data.columns[-2:] or x[1] in data.columns[-2:])]
 
 #Create initial model from data
 # bic = BicScore(test_data)
-bdeu = BDeuScore(test_data)
+bdeu = BDeuScore(test_data, equivalent_sample_size=15)
 hc = HillClimbSearch(test_data)
-model = hc.estimate(scoring_method=bdeu, epsilon=0, black_list=blacklist)
+model = hc.estimate(scoring_method=bdeu, epsilon=0, black_list=blacklist, fixed_edges=test_data_whitelist)
 bn = BayesianNetwork(model)
 bn.fit(test_data, estimator=MaximumLikelihoodEstimator)
 
 #Create BDeu scorer that works with suff stats instead of data to evaluate structures
 bdeu_FG = SuffStatBDeuScore(test_data)
-bdeu_FG.calculate_sufficient_stats(bn)
+bdeu_FG.calculate_sufficient_stats(bn, blacklist)
 bdeu_FG.score(bn)
 
 #Create Expectation Maximization scorer that works with suff stats instead of data to evaluate

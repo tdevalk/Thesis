@@ -534,11 +534,13 @@ class SuffStatScore(StructureScore):
         self.base_estimator = BaseEstimator(data)
         super(SuffStatScore, self).__init__(data, **kwargs)
 
-    def calculate_sufficient_stats(self, model):
+    def calculate_sufficient_stats(self, model, blacklist):
         for node in model.nodes():
             parents = model.get_parents(node)
             vars = parents + [node]
-            candidate_parents = [item for item in list(model.nodes()) if item not in vars]
+            blocked_parents = [item[0] for item in blacklist if item[1] == node]
+            print(f"for node {node} blocked are {blocked_parents}")
+            candidate_parents = [item for item in list(model.nodes()) if ((item not in vars) and (item not in blocked_parents))]
             #Extra parents
             for candidate in candidate_parents:
                 potential_parents = parents.copy()
@@ -583,15 +585,15 @@ class SuffStatScore(StructureScore):
         return self.suff
 
     def simplify_suff(self, variable, parents):
-        # print("Simplify suff called")
+        print(f"Simplify suff called for var: {variable} and parents: {parents}")
         for alternative_keys in self.suff.keys():
-            # print(f"Alternative suff under consideration: {alternative_keys}")
+            print(f"Alternative suff under consideration: {alternative_keys}")
             key = parents + [variable]
             key.sort()
             key = tuple(key)
             # print(f'key under eval: {key}')
             if set(key).issubset(alternative_keys):
-                # print("Subset detected, starting reduction")
+                print("Subset detected, starting reduction")
                 if variable != alternative_keys[0]:
                     # print("Retarget necessary")
                     retargetted_suff = self.suff[alternative_keys].stack(level=variable).unstack(
@@ -603,9 +605,9 @@ class SuffStatScore(StructureScore):
                     reduced_suff = retargetted_suff.groupby(axis=1, level=parents).sum()
                 else:
                     reduced_suff = pd.DataFrame(retargetted_suff.sum(axis=1))
-                # print(f'reduction leads to: {reduced_suff}')
+                print(f'reduction succesfull')
                 return reduced_suff
-        # print("Failing to simplify a sufficient statistic!")
+        print(f"Failing to simplify a sufficient statistic for {variable} with parents{parents}!")
         return False
 
 class SuffStatBicScore(SuffStatScore):
@@ -623,9 +625,9 @@ class SuffStatBicScore(SuffStatScore):
         # print(f"parents for which state_counts are searched: {par}")
         par.sort()
         key = tuple([variable]) + tuple(par)
-        # print(f"parents for which state_counts are searched: {par}")
+        print(f"parents for which state_counts are searched: {par}")
         state_counts = self.simplify_suff(variable, par)
-        # print(f"The suff stat is {state_counts}")
+        print(f"The suff stat is found")
         if not type(state_counts) == pd.DataFrame:
             print(f"this suff stat {key} is not in the list!")
         sample_size = self.N
@@ -667,7 +669,9 @@ class SuffStatBDeuScore(SuffStatScore):
         key = tuple([variable]) + tuple(par)
         var_states = self.state_names[variable]
         var_cardinality = len(var_states)
+        print(f"parents for which state_counts are searched: {par}")
         state_counts = self.simplify_suff(variable, par)
+        print(f"The suff stat is found")
         num_parents_states = float(state_counts.shape[1])
         counts = np.asarray(state_counts)
 
