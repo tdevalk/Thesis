@@ -109,9 +109,10 @@ class ExpectationMaximizationImputation(ParameterEstimator):
                 )
         return likelihood
 
-    def compute_weights(self, data, latent_card):
+    def compute_weights(self, data, latent_assignments):
         """
-        For each data point, creates extra data points for each possible combination
+        For each data poi
+        nt, creates extra data points for each possible combination
         of states of latent variables and assigns weights to each of them.
         """
         cache = []
@@ -121,9 +122,9 @@ class ExpectationMaximizationImputation(ParameterEstimator):
         ).to_dict()
 
         for i in range(data_unique.shape[0]):
-            missing = {var: np.arange(latent_card[var]) for var in latent_card}
+            missing = latent_assignments.copy()
             missing_vars = data_unique.iloc[i][data_unique.iloc[i].isnull()].keys()
-            missing.update({var: data[var].dropna().unique() for var in missing_vars})
+            missing.update({var: data[var].dropna().unique() for var in missing_vars if var not in missing.keys()})
             combies = list(product(*[value for value in missing.values()]))
             missing_combinations = np.array(combies, dtype=object)
             df = data_unique.iloc[[i] * missing_combinations.shape[0]].reset_index(

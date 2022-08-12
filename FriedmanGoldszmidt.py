@@ -250,9 +250,15 @@ class FG_estimator(StructureEstimator):
         white_list=None,
         show_progress=True,
         ):
-        PK = PKalgorithm(new_data, new_vars)
+        # vars_old = new_data.columns - new_vars
+        # data_old_part = pd.DataFrame(new_data, columns=vars_old)
+        # parameter_scoring_method.set_suff_stats(self.suff)
+        # parameter_scoring_method.set_model(BayesianNetwork(start_dag))
+        # weights = parameter_scoring_method.compute_weights(data_old_part, latent_card={})
+        PK = PKalgorithm(new_data, new_vars, parameter_scoring_method, start_dag)
         new_suff = {}
         for variable_set in self.suff:
+            print(f"Updating suff: {variable_set}")
             suff = PK.merge(self.suff[variable_set], {x: self.state_names[x] for x in variable_set})
             key = list(variable_set) + new_vars
             key.sort()
@@ -267,7 +273,7 @@ class FG_estimator(StructureEstimator):
         model = start_dag
         for var in new_vars:
             model.add_node(var)
-            self.variables = self.variables+new_vars
+            self.variables = self.variables+[var]
 
 
         # Step 1.3: Check fixed_edges
@@ -319,11 +325,11 @@ class FG_estimator(StructureEstimator):
                 print(f"Changed model by {best_operation} , leading to score increase "
                       f"of {best_score_delta}")
                 model.add_edge(*best_operation[1])
-                tabu_list.append(("-", best_operation[1]))
+                # tabu_list.append(("-", best_operation[1]))
 
             parameter_scoring_method.set_suff_stats(self.suff)
             new_cpds = MLE_FG(data=new_data, suff=self.suff,
-                              model=model).get_parameters(n_jobs=-1, weighted=False)
+                              model=model, state_names=self.state_names).get_parameters(n_jobs=-1, weighted=False)
             model.cpds = new_cpds
             parameter_scoring_method.set_model(BayesianNetwork(model))
 
@@ -450,9 +456,10 @@ class FG_estimator(StructureEstimator):
             update_data = new_data[ind*data_per_search:(ind+1)*data_per_search]
             parameter_scoring_method.set_suff_stats(self.suff)
             parameter_scoring_method.set_model(BayesianNetwork(current_model))
-            weights = parameter_scoring_method.compute_weights(update_data, latent_card={})
-            self.suff = structure_scoring_method.update_suff(weights, weighted=True, decay=0.01)
-
+            weights = parameter_scoring_method.compute_weights(update_data, latent_assignments={"Treat. response": ["Complete", "Complete", "Partial", "Stabile",
+                                                                  "Progressive", "Recurrence", "Death", "Other"]})
+            self.suff = structure_scoring_method.update_suff(weights, weighted=True, decay=0)
+            print(self.suff[("Age", "Sex")])
             best_operation, best_score_delta = max(
                 self.legal_operations(
                     new_data,
@@ -476,15 +483,15 @@ class FG_estimator(StructureEstimator):
                       f"of {best_score_delta}")
                 if best_operation[0] == "+":
                     current_model.add_edge(*best_operation[1])
-                    tabu_list.append(("-", best_operation[1]))
+                    # tabu_list.append(("-", best_operation[1]))
                 elif best_operation[0] == "-":
                     current_model.remove_edge(*best_operation[1])
-                    tabu_list.append(("+", best_operation[1]))
+                    # tabu_list.append(("+", best_operation[1]))
                 elif best_operation[0] == "flip":
                     X, Y = best_operation[1]
                     current_model.remove_edge(X, Y)
                     current_model.add_edge(Y, X)
-                    tabu_list.append(best_operation)
+                    # tabu_list.append(best_operation)
 
             new_cpds = MLE_FG(data=self.data, suff=self.suff,
                 model=current_model).get_parameters(n_jobs=-1, weighted=False)
@@ -531,7 +538,7 @@ class SuffStatScore(StructureScore):
         """
         self.suff = {}
         self.N = len(data)
-        self.base_estimator = BaseEstimator(data)
+        self.base_estimator = BaseEstimator(data, complete_samples_only=False)
         super(SuffStatScore, self).__init__(data, **kwargs)
 
     def calculate_sufficient_stats(self, model, blacklist):
@@ -548,13 +555,6 @@ class SuffStatScore(StructureScore):
                 key = potential_parents + [node]
                 key.sort()
                 key = tuple(key)
-                # for alternative_key in self.suff.copy().keys():
-                #     if set(alternative_key).issubset(key) and not alternative_key == key:
-                #            self.suff.pop(alternative_key)
-                # if not any(set(key).issubset(alternative_key) for alternative_key in
-                #         self.suff.keys()):
-                #     counts = self.base_estimator.state_counts(key[0], key[1:])
-                #     self.suff[key] = counts
                 if not any(set(key) == alternative_key for alternative_key in
                         self.suff.keys()):
                     counts = self.base_estimator.state_counts(key[0], key[1:])
@@ -580,7 +580,7 @@ class SuffStatScore(StructureScore):
 
     def add_to_suff(self, new_data, variable, parents):
         print(f"A new suff stat was added for var: {variable} and parents: {parents}")
-        new_bic = BicScore(new_data, state_names=self.base_estimator.state_names)
+        new_bic = BicScore(new_data, state_names=self.base_estimator.state_names, complete_samples_only=False)
         key = parents + [variable]
         key.sort()
         key = tuple(key)
@@ -712,8 +712,10 @@ class SuffStatBDeuScore(SuffStatScore):
         )
         #Normalization per datapoint
         normalization = np.sum(counts)
-
-        return score/normalization
+        if normalization == 0:
+            return 0
+        else:
+            return score/normalization
 
 
 class MLE_FG(ParameterEstimator):

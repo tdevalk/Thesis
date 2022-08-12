@@ -5,16 +5,26 @@ from pgmpy.estimators import BaseEstimator
 
 class PKalgorithm:
 
-    def __init__(self, new_data, new_vars):
+    def __init__(self, new_data, new_vars, EM, Model):
         self.newdata = new_data #WHAT TO DO WITH NAN VALUES HERE?
+        # Remove data that does not contain new vars, since imputation is not possible
+        # Complete other data using current model
         self.vars = list(self.newdata.columns)
-        self.bic = BaseEstimator(data=new_data) #Or other score metric
         self.new_vars = new_vars
+        self.EM = EM
+        self.model = Model
+        self.EM.set_model(self.model)
+        for var in self.new_vars:
+            self.newdata = self.newdata[self.newdata[var].notnull()]
+        self.weights = self.EM.compute_weights(self.newdata, latent_assignments={"Treat. response": ["Complete", "Complete", "Partial", "Stabile",
+                                                                  "Progressive", "Recurrence", "Death", "Other"]})
+        print("weight has been computated")
+        self.bic = BaseEstimator(self.weights, state_names=EM.state_names)
         self.new_state_names = {x: self.bic.state_names[x] for x in self.new_vars}
 
     def merge(self, suff, old_state_names):
         vars = list(old_state_names.keys()) #All variables included in old suff stat
-        counts1 = self.bic.state_counts(vars[0], self.new_vars+vars[1:]).stack(vars[1:]+self.new_vars)   #new suff stat
+        counts1 = self.bic.state_counts(vars[0], self.new_vars+vars[1:], weighted=True).stack(vars[1:]+self.new_vars)   #new suff stat
         counts2 = suff.unstack().reorder_levels(vars) #Old suff stat
         result = counts1.copy()        #End product after merge initialized
 

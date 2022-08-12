@@ -1,143 +1,82 @@
 ﻿From;To
-M-stage;Smoking
-Treat. mutation;Smoking
-N-stage;Smoking
-Histology;Smoking
-T-stage;Smoking
-Location;Smoking
-M3 survival;Smoking
-M6 survival;Smoking
-M0 Ecog;Smoking
-M0 HRQOL;Smoking
-M3 HRQOL;Smoking
-M6 HRQOL;Smoking
-Treat. response;Smoking
-Prev. treatment;Smoking
-Treatment;Smoking
 M-stage;Age
-Treat. mutation;Age
 N-stage;Age
 Histology;Age
 T-stage;Age
-Location;Age
 M3 survival;Age
 M6 survival;Age
-M0 Ecog;Age
+M0 PS;Age
 M0 HRQOL;Age
 M3 HRQOL;Age
 M6 HRQOL;Age
 Treat. response;Age
-Prev. treatment;Age
 Treatment;Age
-M-stage;Gender
-Treat. mutation;Gender
-N-stage;Gender
-Histology;Gender
-T-stage;Gender
-Location;Gender
-M3 survival;Gender
-M6 survival;Gender
-M0 Ecog;Gender
-M0 HRQOL;Gender
-M3 HRQOL;Gender
-M6 HRQOL;Gender
-Treat. response;Gender
-Prev. treatment;Gender
-Treatment;Gender
-M-stage;Education
-Treat. mutation;Education
-N-stage;Education
-Histology;Education
-T-stage;Education
-Location;Education
-M3 survival;Education
-M6 survival;Education
-M0 Ecog;Education
-M0 HRQOL;Education
-M3 HRQOL;Education
-M6 HRQOL;Education
-Treat. response;Education
-Prev. treatment;Education
-Treatment;Education
+M-stage;Sex
+N-stage;Sex
+Histology;Sex
+T-stage;Sex
+M3 survival;Sex
+M6 survival;Sex
+M0 PS;Sex
+M0 HRQOL;Sex
+M3 HRQOL;Sex
+M6 HRQOL;Sex
+Treat. response;Sex
+Treatment;Sex
 M-stage;Comorbidity
-Treat. mutation;Comorbidity
 N-stage;Comorbidity
 Histology;Comorbidity
 T-stage;Comorbidity
-Location;Comorbidity
 M3 survival;Comorbidity
 M6 survival;Comorbidity
-M0 Ecog;Comorbidity
+M0 PS;Comorbidity
 M0 HRQOL;Comorbidity
 M3 HRQOL;Comorbidity
 M6 HRQOL;Comorbidity
 Treat. response;Comorbidity
-Prev. treatment;Comorbidity
 Treatment;Comorbidity
 M3 survival;M-stage
 M6 survival;M-stage
-M0 Ecog;M-stage
+M0 PS;M-stage
 M0 HRQOL;M-stage
 M3 HRQOL;M-stage
 M6 HRQOL;M-stage
 Treat. response;M-stage
-Prev. treatment;M-stage
 Treatment;M-stage
-M3 survival;Treat. mutation
-M6 survival;Treat. mutation
-M0 Ecog;Treat. mutation
-M0 HRQOL;Treat. mutation
-M3 HRQOL;Treat. mutation
-M6 HRQOL;Treat. mutation
-Treat. response;Treat. mutation
-Prev. treatment;Treat. mutation
-Treatment;Treat. mutation
 M3 survival;N-stage
 M6 survival;N-stage
-M0 Ecog;N-stage
+M0 PS;N-stage
 M0 HRQOL;N-stage
 M3 HRQOL;N-stage
 M6 HRQOL;N-stage
 Treat. response;N-stage
-Prev. treatment;N-stage
 Treatment;N-stage
 M3 survival;Histology
 M6 survival;Histology
-M0 Ecog;Histology
+M0 PS;Histology
 M0 HRQOL;Histology
 M3 HRQOL;Histology
 M6 HRQOL;Histology
 Treat. response;Histology
-Prev. treatment;Histology
 Treatment;Histology
 M3 survival;T-stage
 M6 survival;T-stage
-M0 Ecog;T-stage
+M0 PS;T-stage
 M0 HRQOL;T-stage
 M3 HRQOL;T-stage
 M6 HRQOL;T-stage
 Treat. response;T-stage
-Prev. treatment;T-stage
 Treatment;T-stage
-M3 survival;Location
-M6 survival;Location
-M0 Ecog;Location
-M0 HRQOL;Location
-M3 HRQOL;Location
-M6 HRQOL;Location
-Treat. response;Location
-Prev. treatment;Location
-Treatment;Location
-M0 Ecog;M3 survival
+M0 PS;M3 survival
 M0 HRQOL;M3 survival
 M3 HRQOL;M3 survival
 M6 HRQOL;M3 survival
-M0 Ecog;M6 survival
+M0 PS;M6 survival
 M0 HRQOL;M6 survival
 M3 HRQOL;M6 survival
 M6 HRQOL;M6 survival
-M3 survival;M0 Ecog
-M6 survival;M0 Ecog
+M3 survival;M0 PS
+M6 survival;M0 PS
 M3 survival;M0 HRQOL
 M6 survival;M0 HRQOL
 M3 survival;M3 HRQOL
@@ -146,275 +85,43 @@ M3 survival;M6 HRQOL
 M6 survival;M6 HRQOL
 M3 survival;Treat. response
 M6 survival;Treat. response
-M0 Ecog;Treat. response
+M0 PS;Treat. response
 M0 HRQOL;Treat. response
 M3 HRQOL;Treat. response
 M6 HRQOL;Treat. response
-M3 survival;Prev. treatment
-M6 survival;Prev. treatment
-M0 Ecog;Prev. treatment
-M0 HRQOL;Prev. treatment
-M3 HRQOL;Prev. treatment
-M6 HRQOL;Prev. treatment
-Treat. response;Prev. treatment
-M-stage;Prev. treatment
-Treat. mutation;Prev. treatment
-N-stage;Prev. treatment
-Histology;Prev. treatment
-T-stage;Prev. treatment
-Location;Prev. treatment
-Smoking;Prev. treatment
-Age;Prev. treatment
-Gender;Prev. treatment
-Education;Prev. treatment
-Comorbidity;Prev. treatment
 M3 survival;Treatment
 M6 survival;Treatment
-M0 Ecog;Treatment
+M0 PS;Treatment
 M0 HRQOL;Treatment
 M3 HRQOL;Treatment
 M6 HRQOL;Treatment
 Treat. response;Treatment
 M-stage;Treatment
-Treat. mutation;Treatment
 N-stage;Treatment
 Histology;Treatment
 T-stage;Treatment
-Location;Treatment
-Smoking;Treatment
 Age;Treatment
-Gender;Treatment
-Education;Treatment
+Sex;Treatment
 Comorbidity;Treatment
-Prev. treatment;Treatment
 Comorbidity;Age
 Comorbidity;Sex
 N-stage;T-stage
 M-stage;T-stage
 N-stage;M-stage
 M-stage;N-stage
-T-stage;Treat. mutation
-Treat. Mutation;T-stage
-N-stage;Treat. mutation
-Treat. Mutation;N-stage
-M-stage;Treat. mutation
-Treat. Mutation;M-stage
-Diagnosis;Treat. mutation
-Treat. Mutation;Diagnosis
-Comorbidity;Treat. mutation
 M3 HRQOL;M0 HRQOL
 M6 HRQOL;M3 HRQOL
 M6 survival;M3 survival
-Treatment;Prev. treatment
-Treatment;M0 Ecog
+Treatment;M0 PS
 Treatment;M0 HRQOL
 Comorbidity;Histology
-Comorbidity;Treat. mutation
 Comorbidity;T-stage
 Comorbidity;M-stage
 Comorbidity;N-stage
-Comorbidity;Location
-Treat. response;M0 Ecog
-M3 HRQOL;M0 Ecog
-M0 HRQOL;M0 Ecog
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
-;
+Treat. response;M0 PS
+M6 HRQOL;M0 PS
+M3 HRQOL;M0 PS
+M0 HRQOL;M0 PS
+M-stage;Histology
+N-stage;Histology
+T-stage;Histology
